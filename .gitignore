@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Données
+local_data/
+*.parquet
+*.zip
+
+# Secrets
+.env
+*.env.local
+
+# Airflow
+airflow/logs/
+airflow.db
+
+# IDE
+.vscode/
+.idea/
+
+#personnel
+notes_personnelles_projet.txt
+
