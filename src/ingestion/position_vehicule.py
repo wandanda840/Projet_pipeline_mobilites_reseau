@@ -25,6 +25,17 @@ def get_vehicle_positions(): # cette fonction retourne un objet FeedMessage cont
         response = requests.get(url, timeout=5, headers=headers)  # Timeout de 5 secondes
         response.raise_for_status()  # Vérifie si la requête a réussi
         
+        
+        #je suavegarde la reponse en local 
+        
+        ts = datetime.now().strftime("%Y%m%dT%H%M%S") #pour l'horodatage du fichier
+        filename = f"../../local_data/gtfs_rt_vehicle_positions_{ts}.pb"  # Nom du fichier avec horodatage
+        
+        
+        with open(filename, "wb") as f:
+            f.write(response.content)  # Écriture du contenu binaire dans le fichier
+        print(f"Flux GTFS-RT sauvegardé dans le fichier : {filename}")
+        
         #J'affiche le content type le content lenght et le content encoding pour vérifier que le flux est bien en binaire
         print(f"Content-Type: {response.headers.get('Content-Type')}")
         print(f"Content-Length: {response.headers.get('Content-Length')}")
@@ -57,6 +68,18 @@ def get_vehicle_positions(): # cette fonction retourne un objet FeedMessage cont
         return None
 
 
+
+def get_vehicle_positions_from_file(filename): # cette fonction retourne un objet FeedMessage contenant les positions des véhicules
+    try:
+        with open(filename, "rb") as f:
+            feed = gtfs_realtime_pb2.FeedMessage() # initialisation de l'objet FeedMessage
+            feed.ParseFromString(f.read()) # je mets le contenu binaire du fichier dans l'objet FeedMessage
+            return feed
+    except Exception as e:
+        print(f"Erreur lors de la lecture du fichier : {e}")
+        return None
+
+
 #fonction pour convertir le flux GTFS-RT en DataFrame pandas
 def feed_to_dataframe(feed):
     rows = []
@@ -80,21 +103,73 @@ def feed_to_dataframe(feed):
     return pd.DataFrame(rows)
 
 if __name__ == "__main__":
+
+    #liste des écarts calculés entre les horodatages STAR de deux appels successifs
+    #et dernier horodatage vu
+    horodatages_vehicules = []
+    last_timestamp = None
+
     # Boucle pour récupérer les données toutes les 10 secondes
     while True:
         feed = get_vehicle_positions()
+
         if feed is not None:
             # Convertir les données en DataFrame pandas
             df = feed_to_dataframe(feed)
+
+            timestamp_actuel = df['vehicle_timestamp'].max()
+
+            # on ne calcule l'écart qu'à partir du 2e appel (pas de "précédent" au premier tour)
+            if last_timestamp is not None:
+                ecart_actuel = timestamp_actuel - last_timestamp
+                horodatages_vehicules.append(ecart_actuel)
+
+            last_timestamp = timestamp_actuel
+
+
             # Ajouter un horodatage pour savoir quand les données ont été récupérées
             df['timestamp'] = datetime.now()
+
+
+            # je convertis l'horodatage en format lisible fuseau horaire de paris
+            df['vehicle_timestamp'] = pd.to_datetime(df['vehicle_timestamp'], unit='s', utc=True).dt.tz_convert('Europe/Paris')
             print(df.head(20))  # Affiche les premières lignes du DataFrame
-            
-            #j'afficche le nombre de véhicules récupérés
+
+            #j'affiche le nombre de véhicules récupérés
             print(f"Nombre de véhicules récupérés : {len(df)}")
+
+
+
+            #calcul de la distribution des écarts de timestamp des véhicules entre les appels successifs
+            #à la fin je fait la moyenne des ecarts des horodatages de la liste
+            if horodatages_vehicules:
+                ecart_moyen = sum(horodatages_vehicules) / len(horodatages_vehicules)
+                print(f"Écart moyen des horodatages des véhicules entre les appels successifs : {ecart_moyen} secondes")
+
         else:
             print("Aucune donnée récupérée.")
 
         time.sleep(10)  # Attendre 10 secondes avant la prochaine récupération
+    
+    
+    
+    # #lecture du fichier local pour tester la fonction get_vehicle_positions_from_file
+    # filename = "../../local_data/gtfs_rt_vehicle_positions_20260902T202031.pb"
+    # feed = get_vehicle_positions_from_file(filename)
+    
+    # #Faisons un print de l'objet feed pour voir ce qu'il contient
+    # print(feed)
+    
+    
+    
+    # df = feed_to_dataframe(feed)
+    # print(df.head(1000))  # Affiche les premières lignes du DataFrame
+    
+    # #j'affiche maitenant l'id , la lagitude longitue et l'horodatage
+    # print(df[['entity_id', 'latitude', 'longitude', 'vehicle_timestamp']].head(1000))  # Affiche les premières lignes du DataFrame
+    # #maintant en convetissant l'horadatage en format lisible fuseau horaire de paris
+    # df['vehicle_timestamp'] = pd.to_datetime(df['vehicle_timestamp'], unit='s', utc=True).dt.tz_convert('Europe/Paris')
+    # print(df[['entity_id', 'latitude', 'longitude', 'vehicle_timestamp']].head(1000))  # Affiche les premières lignes du DataFrame
+
 
 
