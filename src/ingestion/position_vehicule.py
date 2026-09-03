@@ -108,6 +108,10 @@ if __name__ == "__main__":
     #et dernier horodatage vu
     horodatages_vehicules = []
     last_timestamp = None
+    
+    #En vue d'anticiper le dimensionnement du stockage je vais aussi quatifier la taille moyennes des appels successifs
+    sizes = []
+    initial_size = 0
 
     # Boucle pour récupérer les données toutes les 10 secondes
     while True:
@@ -116,6 +120,27 @@ if __name__ == "__main__":
         if feed is not None:
             # Convertir les données en DataFrame pandas
             df = feed_to_dataframe(feed)
+            
+            
+            
+            
+            #calculd du volume de l'appel actuelle en octets
+            current_size = len(feed.SerializeToString())
+            sizes.append(current_size)
+
+            print(f"Taille de l'appel actuel : {current_size} octets")
+            print(f"Taille totale des appels : {sum(sizes)} octets")
+            
+            #moyenne actuelle de la taille des appels successifs
+            average_size = sum(sizes) / len(sizes)
+            print(f"Taille moyenne des appels successifs : {average_size} octets")
+            
+            
+            #Apres lancement je relève un taille moyenne des appels d'environs 29352.25 octets, soit 29.35 Ko.
+            #sur la base d'appels toutes les 10 secondes, cela fait 6 appels par minute, soit 360 appels par heure, soit 8640 appels par jour.
+            #Donc le volume de données journalier est d'environ 29352.25 * 8640 = 253.7 Mo par jour, soit 7.6 Go par mois   
+            #soit 91.2 Go par an. Donc le stockage n'est pas un problème pour ce flux, même sur une longue période. je note dans data-source.md
+
 
             timestamp_actuel = df['vehicle_timestamp'].max()
 
