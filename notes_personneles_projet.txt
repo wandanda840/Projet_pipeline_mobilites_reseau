@@ -1,0 +1,2 @@
+Je verifie les entete http de validation de contenur client serveur c'est par précaution
+Il me renvoies des information notamment sur le temps pendant lequel je peux mettre dans le cache, la dernière fois que les données ont été modifiées

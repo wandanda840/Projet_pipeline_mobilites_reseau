@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "star-streaming-pipeline"
 version = "0.1.0"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = ["requests==2.34.2", "pandas==2.0.3", "gtfs-realtime-bindings==2.2.0"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
