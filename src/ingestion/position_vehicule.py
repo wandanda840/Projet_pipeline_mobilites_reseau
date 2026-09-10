@@ -54,7 +54,7 @@ def get_vehicle_positions(): # cette fonction retourne un objet FeedMessage cont
         # print(f"Cache-Control: {response.headers.get('Cache-Control')}")
         
         
-        #je verifie ce qui se passe quand je lis la reponse comme du texte
+        #je vérifie ce qui se passe quand je lis la reponse comme du texte
         #print(f"Response text: {response.text[:100]}")  # Affiche les 100 premiers caractères du texte de la réponse
         #effectivement c'est illisible car la réponse est un binaire
         
@@ -66,7 +66,6 @@ def get_vehicle_positions(): # cette fonction retourne un objet FeedMessage cont
     except requests.exceptions.RequestException as e:
         print(f"Erreur lors de l'appel à l'API : {e}")
         return None
-
 
 
 def get_vehicle_positions_from_file(filename): # cette fonction retourne un objet FeedMessage contenant les positions des véhicules
@@ -112,6 +111,18 @@ if __name__ == "__main__":
     #En vue d'anticiper le dimensionnement du stockage je vais aussi quatifier la taille moyennes des appels successifs
     sizes = []
     initial_size = 0
+    
+    
+    #je vais faire la jointure du df des voiture avec le df des trips car c'est comme ça que je peux avoir les horaires théoriques à coté des horaires temps réel
+    #juste faire attention au GTFS statique que j'utilise
+    
+    
+    # GTFS STATIQUE POUR COMPARAISON
+    #son df
+    df_trips = pd.read_csv("../../local_data/trips.txt", dtype="str")
+    
+    
+    
 
     # Boucle pour récupérer les données toutes les 10 secondes
     while True:
@@ -119,7 +130,30 @@ if __name__ == "__main__":
 
         if feed is not None:
             # Convertir les données en DataFrame pandas
-            df = feed_to_dataframe(feed)
+            df_vehicules = feed_to_dataframe(feed)
+            
+            
+            
+            
+            
+            
+            
+            #Je suis en train de faire les jointure entre le vehicules et le trips
+            
+            
+            df_jointure = df_vehicules.merge(
+                df_trips,
+                on="trip_id",
+                how="left",
+                indicator=True   # ça ajoute une colonne qui dit si la jointure a réussi
+                )
+            
+
+            
+            
+            
+            
+            
             
             
             
@@ -142,7 +176,11 @@ if __name__ == "__main__":
             #soit 91.2 Go par an. Donc le stockage n'est pas un problème pour ce flux, même sur une longue période. je note dans data-source.md
 
 
-            timestamp_actuel = df['vehicle_timestamp'].max()
+            if df_vehicules.empty:
+                print("Aucun véhicule dans ce flux, on passe à l'appel suivant.")
+                continue
+
+            timestamp_actuel = df_vehicules['vehicle_timestamp'].max()
 
             # on ne calcule l'écart qu'à partir du 2e appel (pas de "précédent" au premier tour)
             if last_timestamp is not None:
@@ -153,15 +191,15 @@ if __name__ == "__main__":
 
 
             # Ajouter un horodatage pour savoir quand les données ont été récupérées
-            df['timestamp'] = datetime.now()
+            df_vehicules['timestamp'] = datetime.now()
 
 
             # je convertis l'horodatage en format lisible fuseau horaire de paris
-            df['vehicle_timestamp'] = pd.to_datetime(df['vehicle_timestamp'], unit='s', utc=True).dt.tz_convert('Europe/Paris')
-            print(df.head(20))  # Affiche les premières lignes du DataFrame
+            df_vehicules['vehicle_timestamp'] = pd.to_datetime(df_vehicules['vehicle_timestamp'], unit='s', utc=True).dt.tz_convert('Europe/Paris')
+            print(df_vehicules.head(20))  # Affiche les premières lignes du DataFrame
 
             #j'affiche le nombre de véhicules récupérés
-            print(f"Nombre de véhicules récupérés : {len(df)}")
+            print(f"Nombre de véhicules récupérés : {len(df_vehicules)}")
 
 
 
@@ -170,6 +208,35 @@ if __name__ == "__main__":
             if horodatages_vehicules:
                 ecart_moyen = sum(horodatages_vehicules) / len(horodatages_vehicules)
                 print(f"Écart moyen des horodatages des véhicules entre les appels successifs : {ecart_moyen} secondes")
+
+
+
+            # Je vais maintenant faire une jointure entre le GTFS TR et le GTFS statique pour récupérer les informations sur les lignes et les arrêts
+            
+            resultat = df_vehicules.merge(
+            df_trips,
+            on="trip_id",   # nom de la colonne de jointure, si identique des deux côtés
+            how="left"              # quel type de jointure
+            )
+            
+            #mesure du taux d'appariement entre les deux dataset
+            taux = (df_jointure["_merge"] == "both").mean()
+            print(f"Taux d'appariement trip_id : {taux:.1%}")
+            
+            
+            #pour voir les éléments non appariés
+            # voir les non-appariés
+            non_apparies = df_jointure[df_jointure["_merge"] == "left_only"]
+            
+            
+
+            print("#####################   AFFICHAGE DES ELEMENTS NON APPARIES  ######################## \n \n \n ”")
+            
+            
+            print(non_apparies.drop_duplicates())
+            
+            
+            
 
         else:
             print("Aucune donnée récupérée.")
@@ -187,14 +254,14 @@ if __name__ == "__main__":
     
     
     
-    # df = feed_to_dataframe(feed)
-    # print(df.head(1000))  # Affiche les premières lignes du DataFrame
+    # df_vehicules = feed_to_dataframe(feed)
+    # print(df_vehicules.head(1000))  # Affiche les premières lignes du DataFrame
     
     # #j'affiche maitenant l'id , la lagitude longitue et l'horodatage
-    # print(df[['entity_id', 'latitude', 'longitude', 'vehicle_timestamp']].head(1000))  # Affiche les premières lignes du DataFrame
+    # print(df_vehicules[['entity_id', 'latitude', 'longitude', 'vehicle_timestamp']].head(1000))  # Affiche les premières lignes du DataFrame
     # #maintant en convetissant l'horadatage en format lisible fuseau horaire de paris
-    # df['vehicle_timestamp'] = pd.to_datetime(df['vehicle_timestamp'], unit='s', utc=True).dt.tz_convert('Europe/Paris')
-    # print(df[['entity_id', 'latitude', 'longitude', 'vehicle_timestamp']].head(1000))  # Affiche les premières lignes du DataFrame
+    # df_vehicules['vehicle_timestamp'] = pd.to_datetime(df_vehicules['vehicle_timestamp'], unit='s', utc=True).dt.tz_convert('Europe/Paris')
+    # print(df_vehicules[['entity_id', 'latitude', 'longitude', 'vehicle_timestamp']].head(1000))  # Affiche les premières lignes du DataFrame
 
 
 
