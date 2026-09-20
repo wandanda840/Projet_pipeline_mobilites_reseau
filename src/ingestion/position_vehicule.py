@@ -101,6 +101,16 @@ def feed_to_dataframe(feed):
         })
     return pd.DataFrame(rows)
 
+
+from datetime import datetime
+import zoneinfo
+
+def timestamp_vers_date_paris(vehicle_timestamp):
+    """Convertit un timestamp GTFS-RT (secondes UNIX, UTC) en date YYYYMMDD, fuseau Europe/Paris."""
+    instant_utc = datetime.fromtimestamp(int(vehicle_timestamp), tz=zoneinfo.ZoneInfo("UTC"))
+    instant_paris = instant_utc.astimezone(zoneinfo.ZoneInfo("Europe/Paris"))
+    return instant_paris.strftime("%Y%m%d")
+
 if __name__ == "__main__":
 
     #liste des écarts calculés entre les horodatages STAR de deux appels successifs
@@ -215,13 +225,19 @@ if __name__ == "__main__":
             
             resultat = df_vehicules.merge(
             df_trips,
-            on="trip_id",   # nom de la colonne de jointure, si identique des deux côtés
-            how="left"              # quel type de jointure
+            on="trip_id",   # nom de la colonne de jointure
+            how="left"              # jointure gauche
             )
             
             #mesure du taux d'appariement entre les deux dataset
             taux = (df_jointure["_merge"] == "both").mean()
             print(f"Taux d'appariement trip_id : {taux:.1%}")
+            
+            #Afficher la vitessse du véhicule le plus rapide
+            # speedmax= df_vehicules["speed"].max()
+            # print(f" la plus haute vitesse : {speedmax}")
+            
+            #82 Km/H ??? 💀  // C'est une valeur plausible mais ça veut dire qu'il y a un conducteur qui va vite
             
             
             #pour voir les éléments non appariés
@@ -234,8 +250,32 @@ if __name__ == "__main__":
             
             
             print(non_apparies.drop_duplicates())
+            #environ un bus n'est pas apparié à chaque jointure (pas bien grave)
             
             
+            
+            #Je refait la jointure étape par étape pour atteindre les horaires théoriques des bus situés dans le GTFS statique
+            
+            
+            
+            #Le lis tous les fichiers nécessaires pour la jointure du GTFS static
+            df_trips = pd.read_csv("../../local_data/gtfs_static/trips.txt", dtype=str)
+            df_stop_times = pd.read_csv("../../local_data/gtfs_static/stop_times.txt", dtype=str)
+            df_calendar = pd.read_csv("../../local_data/gtfs_static/calendar.txt", dtype=str)
+            df_calendar_dates = pd.read_csv("../../local_data/gtfs_static/calendar_dates.txt", dtype=str)
+            
+            
+            
+            #première jointure entre le véhicules et les trips (c'est pour atteindre service  id)
+            df_step1 = df_vehicules.merge(
+            df_trips[["trip_id", "route_id", "service_id", "direction_id"]], #je ne garde que les colonnes utiles
+            on="trip_id",
+            how="left",
+            indicator="_merge_trips"
+            )
+
+            taux_trip = (df_step1["_merge_trips"] == "both").mean()
+            print(f"Taux d'appariement trip_id -> trips.txt : {taux_trip:.1%}")
             
 
         else:
@@ -265,3 +305,4 @@ if __name__ == "__main__":
 
 
 
+  

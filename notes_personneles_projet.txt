@@ -1,2 +1,29 @@
+######### Difficultés rencontrées dans le projet ################
+
+Je ne peux pas bien travailler la nuit car comme je trvaille sur des données temps réel si je veux faire de bonnes annalyse il me faut un bon nombre de véhicules
+hors il n'es cirvule pas beaucoup la nuit.
+
+
+L'autre difficulté a été de faire le schéma de jointure pour atteindre les horaires d'arret partant du GTFS où j'ai seulemnt les id de voiture.
+
+
+
+
+
+
+
 Je verifie les entete http de validation de contenur client serveur c'est par précaution
 Il me renvoies des information notamment sur le temps pendant lequel je peux mettre dans le cache, la dernière fois que les données ont été modifiées
+
+
+
+Je suis en train de rajouter les informations sur la fraicheur et la volumétrie du projet
+
+par rapport à la fraicheur j'ai calculé le temps moyen entre deux mises à jour du timestamp des donées pour savoir à quelle fréquence STAR mets à jour ses informations temps réel.
+
+En ce qui concerne la volumétrie j'ai mesrure la tille desobjets renvoyés par les appels aux fichiers temps réel de star et j'ai prédit combien ça ferait environ d'espace nécéssaire pour sauvegarder tous les résultats sur un an avec ls appels toutes les 10 secondes
+
+Mainteant je vais vérifier la complétude. En fait les données temps réel dans proto2 comportent 0 si le champs est vide on ne sait donc pas lorsqu'on voit zéro si le champs est vide ou alors si la vraie valeur est zéro
+Je vais donc fair edes tests d'existence pour savoir si les champs sont vides ou non.
+
+

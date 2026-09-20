@@ -41,6 +41,19 @@ les agrégats historiques de façon fiable. Le choix entre architecture
 n'étant qu'un rejeu du flux) est documenté dans
 [decisions.md](decisions.md) (ADR-008).
 
+
+
+##Schéma de jointure choisit
+
+
+VehiclePosition.trip.trip_id
+    → trips.trip_id                          (récupère route_id, service_id, shape_id)
+        → trips.service_id
+            → calendar.txt / calendar_dates.txt   (détermine la date de service réelle)
+    → stop_times.trip_id + stop_times.stop_id     (jointure combinée avec VehiclePosition.stop_id)
+        → stop_times.arrival_time / departure_time   (l'horaire théorique brut, à convertir avec ta fonction du §4)
+
+
 ## Problématiques d'ingénierie adressées
 
 | # | Problème | Réponse architecturale |
@@ -51,6 +64,10 @@ n'étant qu'un rejeu du flux) est documenté dans
 | P4 | Idempotence et rejeu | Conception des écritures/partitions/tâches d'orchestration |
 | P5 | Qualité et confiance | Règles de qualité testées à chaque exécution (dbt, CI) |
 | P6 | Volumétrie et stockage | Partitionnement Parquet |
+
+
+
+
 
 ## État d'avancement
 
