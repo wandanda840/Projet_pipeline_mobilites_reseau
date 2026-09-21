@@ -111,6 +111,41 @@ def timestamp_vers_date_paris(vehicle_timestamp):
     instant_paris = instant_utc.astimezone(zoneinfo.ZoneInfo("Europe/Paris"))
     return instant_paris.strftime("%Y%m%d")
 
+
+JOURS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+
+
+#fonction qui permet de vérifier si un service est actif. Engros on voit si il est dans les services prévu et si il n'est pas dans les exeption de calender_dates
+def service_est_actif(service_id, date_str, df_calendar, df_calendar_dates):
+    """
+    Détermine si un service_id circule réellement à la date donnée,
+    en combinant la prévision hebdomadaire (calendar.txt) et les exceptions (calendar_dates.txt).
+    """
+    date_obj = datetime.strptime(date_str, "%Y%m%d")
+    jour_semaine = JOURS[date_obj.weekday()]
+
+    ligne_calendar = df_calendar[df_calendar["service_id"] == service_id]
+    actif_par_motif = False
+    if not ligne_calendar.empty:
+        ligne = ligne_calendar.iloc[0]
+        dans_periode = ligne["start_date"] <= date_str <= ligne["end_date"]
+        actif_par_motif = dans_periode and ligne[jour_semaine] == "1"
+
+    exceptions = df_calendar_dates[
+        (df_calendar_dates["service_id"] == service_id) &
+        (df_calendar_dates["date"] == date_str)
+    ]
+    if not exceptions.empty:
+        exception_type = exceptions.iloc[0]["exception_type"]
+        
+        #on traite les deux types d'exeptions
+        if exception_type == "2":
+            return False  # service retiré ce jour-là
+        if exception_type == "1":
+            return True   # service ajouté ce jour-là
+
+    return actif_par_motif
+
 if __name__ == "__main__":
 
     #liste des écarts calculés entre les horodatages STAR de deux appels successifs
@@ -204,6 +239,9 @@ if __name__ == "__main__":
             df_vehicules['timestamp'] = datetime.now()
 
 
+            # on ajoute date d'observation j'en ai besoin pour vérifier les services actifs dans calendar.txt / calendar_dates.txt
+            df_vehicules['date_observation'] = df_vehicules['vehicle_timestamp'].apply(timestamp_vers_date_paris)
+
             # je convertis l'horodatage en format lisible fuseau horaire de paris
             df_vehicules['vehicle_timestamp'] = pd.to_datetime(df_vehicules['vehicle_timestamp'], unit='s', utc=True).dt.tz_convert('Europe/Paris')
             print(df_vehicules.head(20))  # Affiche les premières lignes du DataFrame
@@ -250,11 +288,11 @@ if __name__ == "__main__":
             
             
             print(non_apparies.drop_duplicates())
-            #environ un bus n'est pas apparié à chaque jointure (pas bien grave)
+            #environ un à zéro bus n'est pas apparié à chaque jointure (pas bien grave)
             
             
             
-            #Je refait la jointure étape par étape pour atteindre les horaires théoriques des bus situés dans le GTFS statique
+            #Je refait les jointures étape par étape pour atteindre les horaires théoriques des bus situés dans le GTFS statique
             
             
             
@@ -275,8 +313,37 @@ if __name__ == "__main__":
             )
 
             taux_trip = (df_step1["_merge_trips"] == "both").mean()
-            print(f"Taux d'appariement trip_id -> trips.txt : {taux_trip:.1%}")
+            print(f"Taux d'appariement trip_id -> trips.txt : {taux_trip:.1%}") #On vérifie le taux d'appariement pour verifier si il y a pas d'anomalies
             
+            
+            
+            #maintenant on crée une colonne qui va dire si le service est valide ou pas (d'où la motivation de date d'observation plus haut)
+            
+            
+            df_step1["service_valide"] = df_step1.apply(
+            lambda ligne: service_est_actif(ligne["service_id"], ligne["date_observation"], df_calendar, df_calendar_dates)
+            if pd.notna(ligne["service_id"]) else False,
+            axis=1
+            )
+
+            taux_service_valide = df_step1["service_valide"].mean()
+            print(f"Taux de services valides à la date d'observation : {taux_service_valide:.1%}")
+            
+                
+            #maintenant, jointure sur un voyage avec les stop_times sur la base du trip_id et du stop_id pour vérifier les 
+            #heures de départ et d'arrivée aux arrêts
+            
+            
+            df_step2 = df_step1.merge(
+            df_stop_times[["trip_id", "stop_id", "stop_sequence", "arrival_time", "departure_time"]],
+            on=["trip_id", "stop_id"],
+            how="left",
+            indicator="_merge_stop_times"
+            )
+
+            taux_stop_times = (df_step2["_merge_stop_times"] == "both").mean()
+            print(f"Taux d'appariement (trip_id, stop_id) -> stop_times.txt : {taux_stop_times:.1%}")
+                        
 
         else:
             print("Aucune donnée récupérée.")

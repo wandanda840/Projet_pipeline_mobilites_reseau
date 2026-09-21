@@ -27,3 +27,7 @@ Mainteant je vais vérifier la complétude. En fait les données temps réel dan
 Je vais donc fair edes tests d'existence pour savoir si les champs sont vides ou non.
 
 
+
+Maintenant je suis en train de faire les jointure selon le schéma de jointure pour atteindre les horaires théoriques avec le gtfs statique
+
+#problème: les lignes circulaire sont dupliquées pendant la jointure N2 
